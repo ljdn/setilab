@@ -11,6 +11,10 @@
 #include "signal.h"
 #include "timing.h"
 
+int num_threads;     // number of threads
+int num_procs;       // number of processors
+pthread_t *tid;             // array of thread ids
+
 typedef struct my_args {
   int band, block, filter_order;
   double bandwidth;
@@ -100,6 +104,9 @@ int analyze_signal(signal *sig, int filter_order, int num_bands, double *lb, dou
     double filter_coeffs[filter_order+1];
     double signal_power;
     double band_power[num_bands];
+    signal *output[num_bands];
+    long tc;
+    long rc;
 
     double start, end;
 
@@ -107,10 +114,24 @@ int analyze_signal(signal *sig, int filter_order, int num_bands, double *lb, dou
 
     resources rstart, rend, rdiff;
 
-    int band;
+    tid = (pthread_t *) malloc(sizeof(pthread_t)*num_threads);
+
+    if (!tid) {
+      fprintf(stderr, "Cannot allocate memory\n", );
+      exit(-1)
+    }
 
     Fc=(sig->Fs)/2;
     bandwidth = Fc / num_bands;
+
+    int i;
+    for(i=); i<num_bands; i++) {
+      output[i] = allocate_signal(sig->num_samples, sig->Fs, 0);
+      if (!output[i]) {
+        printf("Out of memory\n");
+        return 0;
+      }
+    }
 
     remove_dc(sig->data,sig->num_samples);
 
@@ -122,24 +143,38 @@ int analyze_signal(signal *sig, int filter_order, int num_bands, double *lb, dou
     start=get_seconds();
     tstart = get_cycle_count();
 
-    for (band=0;band<num_bands;band++) {
-	// Make the filter
-	generate_band_pass(sig->Fs,
-			   band*bandwidth+0.0001, // keep within limits
-			   (band+1)*bandwidth-0.0001,
-			   filter_order,
-			   filter_coeffs);
-	hamming_window(filter_order,filter_coeffs);
-
-	// Convolve
-	convolve_and_compute_power(sig->num_samples,
-				   sig->data,
-				   filter_order,
-				   filter_coeffs,
-				   &(band_power[band]));
-
-
+    if (num_threads < num_bands) {
+      int howmany_threads = num_threads;
+      block = ceiling(num_bands/num_threads);
+    } else {
+      int howmany_threads = num_bands;
+      block = 1;
     }
+
+    int band;
+    for (band=0; band<howmany_threads; band++) {
+      if (band = howmany_threads-1) {
+        block = num_bands - (block*band);
+      }
+
+      // start threads in worker function
+      my_args my_data = {band, bandwidth, block, filter_order, &(filter_coeffs[(filter_order+1)*band*block]), sig, output[band], band_power};
+      rc = pthread_create(&(tid[band]), NULL, worker, &my_data);
+      if (rc != 0) {
+        perror("Failed to start thread");
+        exit(-1);
+      }
+    }
+
+    // join threads
+    for (band=0;band<num_bands;band++) {
+      rc = pthread_join(tid[band], NULL);
+      if (rc != 0) {
+        perror("Join failed");
+        exit(-1)
+      }
+    }
+
     tend = get_cycle_count();
     end = get_seconds();
     get_resources(&rend,THIS_PROCESS);
@@ -149,7 +184,7 @@ int analyze_signal(signal *sig, int filter_order, int num_bands, double *lb, dou
     // Pretty print results
     double max_band_power = max_of(band_power,num_bands);
     double avg_band_power = avg_of(band_power,num_bands);
-    int i;
+
     int wow=0;
 
 #define MAXWIDTH 40
@@ -236,6 +271,8 @@ int main(int argc, char *argv[])
     Fs = atof(argv[3]);
     filter_order = atoi(argv[4]);
     num_bands = atoi(argv[5]);
+    num_procs = atoi(argv[6]);
+    num_threads = atoi(argv[7]);
 
     assert(Fs>0.0);
     assert(filter_order>0 && !(filter_order & 0x1));
@@ -250,7 +287,9 @@ int main(int argc, char *argv[])
 	   sig_file,
 	   Fs,
 	   filter_order,
-	   num_bands);
+	   num_bands,
+     num_procs,
+     num_threads);
 
     printf("Load or map file\n");
 
