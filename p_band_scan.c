@@ -84,10 +84,9 @@ void *worker(void *input) {
   my_args *args = (my_args*) input;
 
   // make filter
-  int i;
   int coeff = 0;
   printf("thread: %d\n" "size: %d\n", args->thread, args->thread_size);
-  for(i=(args->thread)*(args->thread_size); i<(args->thread+1)*(args->thread_size); i++) {
+  for(int i=(args->thread)*(args->thread_size); i<(args->thread+1)*(args->thread_size); i++) {
     // int coeff = (i-1) * (args->filter_order+1);
     printf("band: %d\n", i);
     generate_band_pass(args->sig->Fs,
@@ -176,25 +175,24 @@ int analyze_signal(signal *sig, int filter_order, int num_bands, int num_procs, 
 
     double filter_coeffs[(filter_order+1) * thread_size];
     // threads begin in worker function
-    my_args my_data;
-    my_data.thread = thread;
-    my_data.bandwidth = bandwidth;
-    my_data.thread_size = thread_size;
-    my_data.filter_order = filter_order;
-    my_data.filter_coeffs = filter_coeffs;
-    my_data.sig = sig;
-    my_data.output = *output;
-    my_data.band_power = band_power;
+    my_args* my_data = malloc(sizeof(my_args));
+    my_data->thread = thread;
+    // printf("my data thread: %d\n", my_data.thread);
+    my_data->bandwidth = bandwidth;
+    my_data->thread_size = thread_size;
+    my_data->filter_order = filter_order;
+    my_data->filter_coeffs = filter_coeffs;
+    my_data->sig = sig;
+    my_data->output = *output;
+    my_data->band_power = band_power;
     rc = pthread_create( &(tid[thread]),    // thread id
                          NULL,             // default attributes
                          worker,           // thread begins here
-                         &my_data);        // argument
+                         my_data);        // argument
     if (rc != 0) {
       perror("Failed to start thread");
       exit(-1);
     }
-    printf("thread (analyze signal): %d\n", thread);
-
   }
 
   // join threads
