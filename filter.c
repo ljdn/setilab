@@ -55,7 +55,7 @@ int generate_band_pass(double Fs, double Fcl, double Fch,
   int n;
 
   assert(order>0 && !(order&0x1));
-	printf("%f\n" "%f\n" "%f\n", Fs, Fcl, Fch);;
+	// printf("%f\n" "%f\n" "%f\n", Fs, Fcl, Fch);;
   assert(Fs>0 && Fcl>0 && Fcl<Fs/2 && Fch>0 && Fch<Fs/2);
 
   Ftl = Fcl/Fs;

@@ -105,8 +105,8 @@ int analyze_signal(signal *sig, int filter_order, int num_bands, double *lb, dou
         filter_coeffs,
         &(band_power[band]));
 
-
-      }
+      printf("%f\n", band_power[band]);
+  }
       tend = get_cycle_count();
       end = get_seconds();
       get_resources(&rend,THIS_PROCESS);

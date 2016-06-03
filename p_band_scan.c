@@ -20,6 +20,7 @@ typedef struct my_args {
   int thread;
   double bandwidth;
   int thread_size;
+  int last_thread;
   int filter_order;
   double* filter_coeffs;
   signal* sig;
@@ -84,11 +85,10 @@ void *worker(void *input) {
   my_args *args = (my_args*) input;
 
   // make filter
-  int coeff = 0;
-  printf("thread: %d\n" "size: %d\n", args->thread, args->thread_size);
-  for(int i=(args->thread)*(args->thread_size); i<(args->thread+1)*(args->thread_size); i++) {
-    // int coeff = (i-1) * (args->filter_order+1);
-    printf("band: %d\n", i);
+  // int coeff = 0;
+  // printf("thread: %d\n" "size: %d\n", args->thread, args->thread_size );
+  for(int i=(args->thread)*(args->thread_size); i<(args->thread)*(args->thread_size)+(args->last_thread); i++) {
+    int coeff = i * (args->filter_order+1);
     generate_band_pass(args->sig->Fs,
                       (i*(args->bandwidth))+0.0001,
                       (i+1)*(args->bandwidth)-0.0001,
@@ -102,8 +102,9 @@ void *worker(void *input) {
                               args->filter_order,
                               &(args->filter_coeffs[coeff]),
                               &(args->band_power[i]));
+    // printf("power %f\n", args->band_power[i]);
     // increment to next batch of coeffs
-    coeff++;
+    // coeff++;
   }
 
   // done, exit with no return val
@@ -114,7 +115,7 @@ void *worker(void *input) {
 int analyze_signal(signal *sig, int filter_order, int num_bands, int num_procs, int num_threads, double *lb, double *ub)
 {
   double Fc, bandwidth, signal_power;
-  // double filter_coeffs[(filter_order+1)*(num_bands+1)];
+  double filter_coeffs[(filter_order+1)*(num_bands)];
   double band_power[num_bands];
   signal *output[num_bands];
   long rc;
@@ -165,21 +166,21 @@ int analyze_signal(signal *sig, int filter_order, int num_bands, int num_procs, 
     thread_size = 1;
   }
 
-
+  int last_thread = thread_size;
   for (int thread=0; thread<howmany_threads; thread++) {
     // printf("thread num: %d\n", thread);
     if (thread == howmany_threads-1) {
-      thread_size = num_bands - (thread_size*thread);
+      last_thread = num_bands - (thread_size*thread);
     }
     // last thread_size gets the rest of the bands if it wasn't split evenly
-
-    double filter_coeffs[(filter_order+1) * thread_size];
+    // double filter_coeffs[(filter_order+1) * thread_size];
     // threads begin in worker function
     my_args* my_data = malloc(sizeof(my_args));
+
     my_data->thread = thread;
-    // printf("my data thread: %d\n", my_data.thread);
     my_data->bandwidth = bandwidth;
     my_data->thread_size = thread_size;
+    my_data->last_thread = last_thread;
     my_data->filter_order = filter_order;
     my_data->filter_coeffs = filter_coeffs;
     my_data->sig = sig;
@@ -196,7 +197,7 @@ int analyze_signal(signal *sig, int filter_order, int num_bands, int num_procs, 
   }
 
   // join threads
-  for (int thread=0;thread<num_threads;thread++) {
+  for (int thread=0;thread<howmany_threads;thread++) {
     rc = pthread_join(tid[thread], NULL);
     if (rc != 0) {
       perror("Join failed");
@@ -213,6 +214,7 @@ int analyze_signal(signal *sig, int filter_order, int num_bands, int num_procs, 
   // Pretty print results
   double max_band_power = max_of(band_power,num_bands);
   double avg_band_power = avg_of(band_power,num_bands);
+  // printf("avg band pwr %f\n", avg_band_power);
 
   int wow=0;
 
