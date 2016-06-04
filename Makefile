@@ -8,7 +8,7 @@ ifeq ($(TARGET),phi)
   CC=$(PHI_CC) -g -Wall
   AR=$(PHI_AR)
 else
-  CC=$(HOST_CC) -m64 -g -Wall
+  CC=$(HOST_CC) -m64 -Wall
   AR=$(HOST_AR)
   TARGET=host
 endif
@@ -40,7 +40,7 @@ band_scan: band_scan.c filter.h signal.h timing.h libfilter.a
 # which is critical
 #
 p_band_scan: p_band_scan.c filter.h signal.h timing.h libfilter.a
-	    $(CC) -std=c99 -pthread p_band_scan.c -L. -lfilter -lm -o p_band_scan
+	    $(CC) p_band_scan.c -L. -std=c99 -pthread -lfilter -lm -O3 -o p_band_scan
 #
 
 clean-filter:
