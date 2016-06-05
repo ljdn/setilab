@@ -5,10 +5,10 @@ PHI_AR = /opt/mpss/3.3/sysroots/x86_64-mpsssdk-linux/usr/libexec/k1om-mpss-linux
 HOST_AR = ar
 
 ifeq ($(TARGET),phi)
-  CC=$(PHI_CC) -g -Wall
+  CC=$(PHI_CC)
   AR=$(PHI_AR)
 else
-  CC=$(HOST_CC) -m64 -Wall
+  CC=$(HOST_CC) -m64 -O3 -ffast-math -funroll-loops
   AR=$(HOST_AR)
   TARGET=host
 endif
@@ -40,7 +40,7 @@ band_scan: band_scan.c filter.h signal.h timing.h libfilter.a
 # which is critical
 #
 p_band_scan: p_band_scan.c filter.h signal.h timing.h libfilter.a
-	    $(CC) p_band_scan.c -L. -std=c99 -pthread -lfilter -lm -O3 -o p_band_scan
+	    $(CC) p_band_scan.c -L. -std=c99 -pthread -lfilter -lm -o p_band_scan
 #
 
 clean-filter:
